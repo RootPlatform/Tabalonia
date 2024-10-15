@@ -30,6 +30,7 @@ public class TabsControl : TabControl
 
     private ICommand _addItemCommand;
     private ICommand _closeItemCommand;
+    private ICommand _moveRequestedCommand;
 
     #endregion
 
@@ -92,6 +93,12 @@ public class TabsControl : TabControl
             nameof(CloseItemCommand),
             o => o.CloseItemCommand,
             (o, v) => o.CloseItemCommand = v);
+            
+    public static readonly DirectProperty<TabsControl, ICommand> MoveRequestedCommandProperty =
+        AvaloniaProperty.RegisterDirect<TabsControl, ICommand>(
+            nameof(MoveRequestedCommand),
+            o => o.MoveRequestedCommand,
+            (o, v) => o.MoveRequestedCommand = v);
 
     #endregion
 
@@ -209,6 +216,12 @@ public class TabsControl : TabControl
     {
         get => _closeItemCommand;
         private set => SetAndRaise(CloseItemCommandProperty, ref _closeItemCommand, value);
+    }
+    
+    public ICommand MoveRequestedCommand
+    {
+        get => _moveRequestedCommand;
+        set => SetAndRaise(MoveRequestedCommandProperty, ref _moveRequestedCommand, value);
     }
 
     #endregion
@@ -385,15 +398,18 @@ public class TabsControl : TabControl
 
             if (ItemsSource is IList list)
             {
-                if (container.LogicalIndex != list.IndexOf(item))
+                var currentIndex = list.IndexOf(item);
+                if (container.LogicalIndex != currentIndex)
                 {
-                    list.Remove(item);
-                    list.Insert(container.LogicalIndex, item);
+                    var parameters = new MoveTabParameters(currentIndex, container.LogicalIndex);
 
-                    SelectedItem = item;
+                    if (MoveRequestedCommand.CanExecute(parameters))
+                    {
+                        MoveRequestedCommand.Execute(parameters);
+                        SelectedItem = item;
+                    }
 
                     int i = 0;
-
                     foreach (var dragTabItem in DragTabItems())
                         dragTabItem.LogicalIndex = i++;
                 }
@@ -454,4 +470,16 @@ public class TabsControl : TabControl
     }
 
     #endregion
+    
+    public class MoveTabParameters
+    {
+        public int OldIndex { get; }
+        public int NewIndex { get; }
+
+        public MoveTabParameters(int oldIndex, int newIndex)
+        {
+            OldIndex = oldIndex;
+            NewIndex = newIndex;
+        }
+    }
 }

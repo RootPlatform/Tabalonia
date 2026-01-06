@@ -93,6 +93,14 @@ public class DragTabItem : TabItem
     {
         base.OnApplyTemplate(e);
 
+        // Unsubscribe from previous thumb events if template is reapplied
+        if (_thumb is not null)
+        {
+            _thumb.DragStarted -= ThumbOnDragStarted;
+            _thumb.DragDelta -= ThumbOnDragDelta;
+            _thumb.DragCompleted -= ThumbOnDragCompleted;
+        }
+
         var templateThumb = e.Find<LeftPressedThumb>("PART_Thumb");
 
         _thumb = templateThumb;
@@ -156,14 +164,11 @@ public class DragTabItem : TabItem
     {
         var previewEventArgs = new DragTabDragDeltaEventArgs(PreviewDragDelta, this, e);
         RaiseEvent(previewEventArgs);
-        // if (previewEventArgs.Cancel)
-        //     _thumb.CancelDrag();
+
         if (!previewEventArgs.Handled)
         {
             var eventArgs = new DragTabDragDeltaEventArgs(DragDelta, this, e);
             RaiseEvent(eventArgs);
-            //if (eventArgs.Cancel)
-            //    thumb.CancelDrag();
         }
     }
 

@@ -260,49 +260,59 @@ public class TabsPanel : Panel
     }
         
         
-    private async void SendToLocation(DragTabItem item, double location, double width)
+    private void SendToLocation(DragTabItem item, double location, double width)
     {
         bool itemIsAnimating = _activeStoryboardTargetLocations.TryGetValue(item, out double activeTarget);
-        
+
         if (itemIsAnimating)
         {
             SetLocation(item, item.X, width);
             return;
         }
-        
-        if (Abs(item.X - location) < 1.0 || itemIsAnimating && Abs(activeTarget - location) < 1.0)
+
+        if (Abs(item.X - location) < 1.0 || (itemIsAnimating && Abs(activeTarget - location) < 1.0))
         {
             return;
         }
-        
+
         _activeStoryboardTargetLocations[item] = location;
 
+        _ = AnimateToLocationAsync(item, location, width);
+    }
+
+    private async Task AnimateToLocationAsync(DragTabItem item, double location, double width)
+    {
         const int animDuration = 200;
 
-        var animation = new Animation
+        try
         {
-            Easing = new CubicEaseOut(),
-            Duration = TimeSpan.FromMilliseconds(animDuration),
-            PlaybackDirection = PlaybackDirection.Normal,
-            FillMode = FillMode.None,
-            Children =
+            var animation = new Animation
             {
-                new KeyFrame
+                Easing = new CubicEaseOut(),
+                Duration = TimeSpan.FromMilliseconds(animDuration),
+                PlaybackDirection = PlaybackDirection.Normal,
+                FillMode = FillMode.None,
+                Children =
                 {
-                    KeyTime = TimeSpan.FromMilliseconds(animDuration),
-                    Setters =
+                    new KeyFrame
                     {
-                        new Setter(DragTabItem.XProperty, location),
+                        KeyTime = TimeSpan.FromMilliseconds(animDuration),
+                        Setters =
+                        {
+                            new Setter(DragTabItem.XProperty, location),
+                        }
                     }
                 }
-            }
-        };
-            
-        await animation.RunAsync(item);
+            };
 
-        SetLocation(item, location, width);
-            
-        _activeStoryboardTargetLocations.Remove(item);
+            await animation.RunAsync(item);
+
+            SetLocation(item, location, width);
+        }
+        finally
+        {
+            _activeStoryboardTargetLocations.Remove(item);
+        }
     }
 
 

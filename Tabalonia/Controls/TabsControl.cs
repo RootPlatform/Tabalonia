@@ -28,9 +28,12 @@ public class TabsControl : TabControl
     private DragTabItem? _draggedItem;
     private bool _dragging;
 
-    private ICommand _addItemCommand;
-    private ICommand _closeItemCommand;
-    private ICommand _moveRequestedCommand;
+    private ICommand _addItemCommand = null!;
+    private ICommand _closeItemCommand = null!;
+    private ICommand _moveRequestedCommand = null!;
+
+    private Thumb? _leftDragWindowThumb;
+    private Thumb? _rightDragWindowThumb;
 
     #endregion
 
@@ -125,6 +128,7 @@ public class TabsControl : TabControl
 
         _addItemCommand = new SimpleActionCommand(AddItem);
         _closeItemCommand = new SimpleParamActionCommand(CloseItem);
+        _moveRequestedCommand = new SimpleParamActionCommand(_ => { });
     }
 
     #endregion
@@ -233,15 +237,26 @@ public class TabsControl : TabControl
     {
         base.OnApplyTemplate(e);
 
-        var leftDragWindowThumb = e.NameScope.Get<Thumb>("PART_LeftDragWindowThumb");
-        leftDragWindowThumb.AddHandler(PointerPressedEvent, OnThumbBeginDrag, handledEventsToo: true);
-        //leftDragWindowThumb.DragDelta += WindowDragThumbOnDragDelta;
-        leftDragWindowThumb.DoubleTapped += WindowDragThumbOnDoubleTapped;
+        // Unsubscribe from previous thumb events if template is reapplied
+        if (_leftDragWindowThumb is not null)
+        {
+            _leftDragWindowThumb.RemoveHandler(PointerPressedEvent, OnThumbBeginDrag);
+            _leftDragWindowThumb.DoubleTapped -= WindowDragThumbOnDoubleTapped;
+        }
 
-        var rightDragWindowThumb = e.NameScope.Get<Thumb>("PART_RightDragWindowThumb");
-        rightDragWindowThumb.AddHandler(PointerPressedEvent, OnThumbBeginDrag, handledEventsToo: true);
-        // rightDragWindowThumb.DragDelta += WindowDragThumbOnDragDelta;
-        rightDragWindowThumb.DoubleTapped += WindowDragThumbOnDoubleTapped;
+        if (_rightDragWindowThumb is not null)
+        {
+            _rightDragWindowThumb.RemoveHandler(PointerPressedEvent, OnThumbBeginDrag);
+            _rightDragWindowThumb.DoubleTapped -= WindowDragThumbOnDoubleTapped;
+        }
+
+        _leftDragWindowThumb = e.NameScope.Get<Thumb>("PART_LeftDragWindowThumb");
+        _leftDragWindowThumb.AddHandler(PointerPressedEvent, OnThumbBeginDrag, handledEventsToo: true);
+        _leftDragWindowThumb.DoubleTapped += WindowDragThumbOnDoubleTapped;
+
+        _rightDragWindowThumb = e.NameScope.Get<Thumb>("PART_RightDragWindowThumb");
+        _rightDragWindowThumb.AddHandler(PointerPressedEvent, OnThumbBeginDrag, handledEventsToo: true);
+        _rightDragWindowThumb.DoubleTapped += WindowDragThumbOnDoubleTapped;
     }
 
     protected override Control CreateContainerForItemOverride(object? item, int index, object? recycleKey) =>
@@ -331,7 +346,7 @@ public class TabsControl : TabControl
     private void ItemDragDelta(object? sender, DragTabDragDeltaEventArgs e)
     {
         if (_draggedItem is null)
-            throw new Exception($"{nameof(TabsControl)}.{nameof(ItemDragDelta)} - _draggedItem is null");
+            throw new InvalidOperationException($"{nameof(TabsControl)}.{nameof(ItemDragDelta)} - _draggedItem is null");
 
         if (_draggedItem.LogicalIndex < FixedHeaderCount)
         {
@@ -436,26 +451,30 @@ public class TabsControl : TabControl
         window?.RestoreWindow();
     }
 
-    [Obsolete]
-    private void WindowDragThumbOnDragDelta(object? sender, VectorEventArgs e)
-    {
-        var window = this.FindLogicalAncestorOfType<Window>();
-
-        window?.DragWindow(e.Vector.X, e.Vector.Y);
-    }
-
-
     private void AddItem()
     {
         if (NewItemAsyncFactory is not null)
         {
-            NewItemAsyncFactory.Invoke().ContinueWith(t => { AddItem(t.Result); },
-                scheduler: TaskScheduler.FromCurrentSynchronizationContext());
-
+            _ = AddItemFromAsyncFactoryAsync();
             return;
         }
 
         AddItem(NewItemFactory?.Invoke());
+    }
+
+    private async Task AddItemFromAsyncFactoryAsync()
+    {
+        if (NewItemAsyncFactory is null) return;
+
+        try
+        {
+            var newItem = await NewItemAsyncFactory.Invoke();
+            AddItem(newItem);
+        }
+        catch (Exception)
+        {
+            // Factory failed to create item - silently ignore
+        }
     }
 
 

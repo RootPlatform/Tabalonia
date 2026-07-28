@@ -12,6 +12,8 @@ public class TabsControl : TabControl
 
     private const double DefaultTabWidth = 140;
 
+    private const double DragDistanceSelectionThreshold = 5d;
+
     public const double WindowsAndLinuxDefaultLeftThumbWidth = 4d;
     public const double MacOsDefaultLeftThumbWidth = 80d;
 
@@ -27,6 +29,7 @@ public class TabsControl : TabControl
 
     private DragTabItem? _draggedItem;
     private bool _dragging;
+    private double _dragTotalDistance;
 
     private ICommand _addItemCommand = null!;
     private ICommand _closeItemCommand = null!;
@@ -58,6 +61,10 @@ public class TabsControl : TabControl
 
     public static readonly StyledProperty<int> FixedHeaderCountProperty =
         AvaloniaProperty.Register<TabsControl, int>(nameof(FixedHeaderCount), defaultValue: 0);
+
+
+    public static readonly StyledProperty<bool> SelectItemOnReleaseProperty =
+        AvaloniaProperty.Register<TabsControl, bool>(nameof(SelectItemOnRelease), defaultValue: false);
 
 
     public static readonly StyledProperty<Func<Task<object>>?> NewItemAsyncFactoryProperty =
@@ -192,6 +199,26 @@ public class TabsControl : TabControl
     {
         get => GetValue(FixedHeaderCountProperty);
         set => SetValue(FixedHeaderCountProperty, value);
+    }
+
+    /// <summary>
+    /// When true, a tab is selected on pointer release instead of pointer press,
+    /// so dragging a tab to reorder it does not also select (open) it.
+    /// </summary>
+    public bool SelectItemOnRelease
+    {
+        get => GetValue(SelectItemOnReleaseProperty);
+        set => SetValue(SelectItemOnReleaseProperty, value);
+    }
+
+    /// <summary>
+    /// Re-exposes the protected SelectingItemsControl setter (as ListBox does) so
+    /// SelectionMode can be set from XAML, e.g. Single to allow a null selection.
+    /// </summary>
+    public new SelectionMode SelectionMode
+    {
+        get => base.SelectionMode;
+        set => base.SelectionMode = value;
     }
 
 
@@ -329,6 +356,20 @@ public class TabsControl : TabControl
 
         e.Handled = true;
 
+        _dragTotalDistance = 0;
+
+        if (SelectItemOnRelease)
+            return;
+
+        SelectDraggedItem();
+    }
+
+
+    private void SelectDraggedItem()
+    {
+        if (_draggedItem is null)
+            return;
+
         _draggedItem.IsSelected = true;
 
         object? item = ItemFromContainer(_draggedItem);
@@ -360,6 +401,8 @@ public class TabsControl : TabControl
             SetDraggingItem(_draggedItem);
         }
 
+        _dragTotalDistance += Math.Abs(e.DragDeltaEventArgs.Vector.X) + Math.Abs(e.DragDeltaEventArgs.Vector.Y);
+
         _draggedItem.X += e.DragDeltaEventArgs.Vector.X;
         _draggedItem.Y += e.DragDeltaEventArgs.Vector.Y;
 
@@ -378,6 +421,9 @@ public class TabsControl : TabControl
         }
 
         Dispatcher.UIThread.Post(() => _tabsPanel.InvalidateMeasure(), DispatcherPriority.Loaded);
+
+        if (SelectItemOnRelease && _dragTotalDistance < DragDistanceSelectionThreshold)
+            SelectDraggedItem();
 
         _dragging = false;
     }
@@ -421,8 +467,14 @@ public class TabsControl : TabControl
 
                     if (MoveRequestedCommand.CanExecute(parameters))
                     {
+                        // The move re-adds the item, which can drop its selection; capture the
+                        // state first so dragging an already-selected tab keeps it selected.
+                        bool wasSelected = ReferenceEquals(SelectedItem, item);
+
                         MoveRequestedCommand.Execute(parameters);
-                        SelectedItem = item;
+
+                        if (!SelectItemOnRelease || wasSelected)
+                            SelectedItem = item;
                     }
 
                     int i = 0;

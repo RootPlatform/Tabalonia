@@ -6,6 +6,7 @@
         <Nullable>enable</Nullable>
         <LangVersion>preview</LangVersion>
         <IsAotCompatible>true</IsAotCompatible>
+        <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
 
         <Version>0.11.0</Version>
 

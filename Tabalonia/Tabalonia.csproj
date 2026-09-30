@@ -23,8 +23,8 @@
 
 
     <ItemGroup>
-        <PackageReference Include="Avalonia" Version="12.1.2" />
-        <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.2" />
+        <PackageReference Include="Avalonia" Version="12.1.3" />
+        <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.3" />
     </ItemGroup>
 
     <ItemGroup Label="PackageIcon">

@@ -10,7 +10,7 @@ public class SimpleActionCommand(Action action) : ICommand
 
     public void Execute(object? parameter) => action.Invoke();
 
-    public event EventHandler? CanExecuteChanged;
+    public event EventHandler? CanExecuteChanged { add { } remove { } }
 }
 
 public class SimpleParamActionCommand(Action<object?> action) : ICommand
@@ -19,5 +19,5 @@ public class SimpleParamActionCommand(Action<object?> action) : ICommand
 
     public void Execute(object? parameter) => action.Invoke(parameter);
 
-    public event EventHandler? CanExecuteChanged;
+    public event EventHandler? CanExecuteChanged { add { } remove { } }
 }

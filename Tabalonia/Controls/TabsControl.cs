@@ -129,7 +129,7 @@ public class TabsControl : TabControl
 
         _tabsPanel.DragCompleted += TabsPanelOnDragCompleted;
 
-        ItemsPanel = new FuncTemplate<Panel>(() => _tabsPanel);
+        ItemsPanel = new FuncTemplate<Panel?>(() => _tabsPanel);
 
         LastTabClosedAction = (_, _) => GetThisWindow()?.Close();
 
@@ -340,8 +340,11 @@ public class TabsControl : TabControl
 
     private IEnumerable<DragTabItem> DragTabItems()
     {
-        foreach (object item in Items)
+        foreach (var item in Items)
         {
+            if (item is null)
+                continue;
+
             var container = ContainerFromItem(item);
 
             if (container is DragTabItem dragTabItem)
@@ -452,6 +455,9 @@ public class TabsControl : TabControl
 
     private void MoveTabModelsIfNeeded()
     {
+        if (_draggedItem is null)
+            return;
+
         object? item = ItemFromContainer(_draggedItem);
 
         if (item != null)
